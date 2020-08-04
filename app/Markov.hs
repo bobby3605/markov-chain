@@ -3,7 +3,9 @@ module Markov where
 import Text.ParserCombinators.Parsec
 import System.Random
 import qualified Control.Monad.Trans.State.Lazy as S
-import Control.Monad
+
+randomChain :: Chain
+randomChain = makeChain ["Random123","Random123"] "Random123" 1
 
 type Prefix = [String] -- A prefix is one or more words
 type Suffix = String  -- A suffix is only one word
@@ -14,7 +16,7 @@ data Chain = Chain {
   prefix :: Prefix,
   suffix :: Suffix,
   rate :: Rate
-  }
+  } deriving (Eq)
 
 instance Show Chain where
   show (Chain p s r) = "Prefix: " ++ show p ++ " Suffix: " ++ show s ++ " Rate: " ++ show r ++ "\n"
@@ -146,6 +148,7 @@ pickChain chains rand clist = helper chainBool chainsFixed
         chainsFixed = map (\a -> makeChain (getPrefix a) (getSuffix a) (rangefix*(getRate a))) chains
         chainBool = getRandom (map getRate chainsFixed) rand
         helper :: [Bool] -> [Chain] -> Chain
+        -- If chain isn't found, return a random chain
         helper [] _ = pickChain clist rand clist
         helper _ [] = pickChain clist rand clist
         -- Return the correct chain from the list of Bools
@@ -177,7 +180,7 @@ markovChain g input splitNum seed = let clist = chainGenerator input splitNum in
 
 chainHelper :: StdGen -> String -> Int -> Int -> Chain -> String
 chainHelper g input splitNum len seed = let clist = markovChain g input splitNum seed in
-  helper++(concatMap (\a -> " "++getSuffix a) $ take len clist)
+  helper++(concatMap (\a -> " "++getSuffix a) $ take len (if seed /= randomChain then clist else (drop 1 clist)))
   where helper :: String
         -- Appends prefix to output
-        helper = tail $ concatMap (" "++) (getPrefix seed)
+        helper = if seed /= randomChain then (tail $ concatMap (" "++) (getPrefix seed)) else ""
