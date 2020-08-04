@@ -111,8 +111,8 @@ getSuffixes p input = helper p input []
 
 -- Splits a list of strings by number
 splitBy :: [a] -> Int -> [[a]]
-splitBy [] _ = []
-splitBy input num = (take num input):(splitBy (drop (num-1) input) num)
+splitBy [] _ = []   -- Splitting by 1s causes infinite recursion
+splitBy input num = (take num input):(splitBy (drop (if num /= 1 then (num-1) else num) input) num)
 
 -- Functions to extract values from a Chain
 getPrefix :: Chain -> Prefix
@@ -127,8 +127,7 @@ getRate (Chain _ _ r) = r
 -- Takes a list of rates and a random number, outputs a random weighted choice
 getRandom :: [Rate] -> Float -> [Bool]
 getRandom rateList randomNum = listGen
-  where numRates = length rateList
-        listGenHelper :: [Rate] -> [Bool] -> Float -> [Bool]
+  where listGenHelper :: [Rate] -> [Bool] -> Float -> [Bool]
         listGenHelper [] acc _ = acc
         listGenHelper (x:xs) acc acc2 = listGenHelper xs (acc ++ (if randomNum <= (x+acc2) && randomNum > acc2 then True:[] else False:[])) (acc2+x)
         listGen = listGenHelper rateList [] 0.00
@@ -137,7 +136,7 @@ getNextChains :: [Chain] -> Chain -> [Chain]
 getNextChains list input = getSuffixList list input []
   where getSuffixList :: [Chain] -> Chain -> [Chain] -> [Chain]
         getSuffixList [] _ acc = acc
-        getSuffixList (chain:chains) inputChain acc = if (getPrefix chain) == (((getPrefix inputChain)!!1):[]++(getSuffix inputChain):[]) then getSuffixList chains inputChain acc++[chain] else getSuffixList chains inputChain acc
+        getSuffixList (chain:chains) inputChain acc = if (getPrefix chain) == ((last (getPrefix inputChain)):[]++(getSuffix inputChain):[]) then getSuffixList chains inputChain acc++[chain] else getSuffixList chains inputChain acc
 
 pickChain :: [Chain] -> Float -> [Chain] -> Chain
 pickChain chains rand clist = helper chainBool chainsFixed
@@ -178,4 +177,7 @@ markovChain g input splitNum seed = let clist = chainGenerator input splitNum in
 
 chainHelper :: StdGen -> String -> Int -> Int -> Chain -> String
 chainHelper g input splitNum len seed = let clist = markovChain g input splitNum seed in
-  (getPrefix seed)!!0++" "++(getPrefix seed)!!1++(concatMap (\a -> " "++getSuffix a) $ take len clist)
+  helper++(concatMap (\a -> " "++getSuffix a) $ take len clist)
+  where helper :: String
+        -- Appends prefix to output
+        helper = tail $ concatMap (" "++) (getPrefix seed)
