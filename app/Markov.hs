@@ -43,10 +43,11 @@ parserHandler parsed = helper parsed
 
 -- Calculates a list of the rate of each word appearing in a list of strings
 wordRate :: Eq a => [a] -> [(a,Rate)]
+-- input :: [(Prefix,Suffix)], only called once
 wordRate input = zip uniques rateList -- Combines the rateList and uniques
   where uniques = uniqueWords input -- List of unique words
         numOfWords = length input -- Total number of words
-        wordCounts = map (wordCounter input) uniques -- Returns a [(String,Integer)] where String is a word and Integer is the amount of times it appears
+        wordCounts = map (wordCounter input) uniques -- Returns [Integer] where each integer is the amount of times each word occurs
         rateList = map (\x -> x / (fromIntegral numOfWords :: Float)) (map (\b -> (fromIntegral b :: Float)) wordCounts) -- Returns a [Float] of word rates in the order they appear in uniques
 
 -- Returns a list of unique words
@@ -76,13 +77,13 @@ chainGenerator input prefixNum = clist
           where suffixlengths :: [Int]
                 suffixlengths = map (\b -> (length (getSuffixes b parsed))) prefixes -- Get list of lengths of each suffix
                 bigprefixes :: [Prefix]
-                bigprefixes = generator repMap prefixes []  -- Get list of prefixes with extra added
+                bigprefixes = reverse $ generator repMap prefixes []  -- Get list of prefixes with extra added
                 repMap :: [(Prefix -> [Prefix])]
                 repMap = map (\c -> replicate c) suffixlengths -- Create a list of functions that take a prefix and generate a list of prefixes equal to the length of their suffixes
                 generator :: [(Prefix -> [Prefix])] -> [Prefix] -> [Prefix] -> [Prefix]
                 generator [] _ acc = acc
                 generator _ [] acc = acc
-                generator (f:fs) (x:xs) acc = generator fs xs (acc++(f x)) -- recursively apply the functions to generate the list of prefixes, works similar to map
+                generator (f:fs) (x:xs) acc = generator fs xs ((f x)++acc) -- recursively apply the functions to generate the list of prefixes, works similar to map
         rateList :: [((Prefix, Suffix),Rate)]
         rateList = wordRate pslist -- Generate list of prefixes, suffixes and their rates
         clist :: [Chain]
