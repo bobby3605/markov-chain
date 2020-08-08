@@ -57,13 +57,11 @@ uniqueWords input = helper input []
     helper (x:xs) acc = if found x acc then helper xs acc else helper xs (acc++[x]) -- If x is in the accumulator, continue, if x is not in the accumulator (haven't added it yet), add it to accumulator, then continue
     found word list = if (wordCounter list word) /= 0 then True else False -- Check if a word is in a list
 
--- Word count
 wordCounter :: Eq a => [a] -> a -> Integer
-wordCounter input word = sum $ zipWith wordCompare input (repeat word) -- Every time the word appears, a 1 is added to the list, every time it doesn't, a 0. This is summed to produce a word count
-
--- Bool -> Int
-wordCompare :: Eq a => a -> a -> Integer
-wordCompare input word = if input == word then 1 else 0
+wordCounter input word = helper input word 0
+  where helper :: Eq a => [a] -> a -> Integer -> Integer
+        helper [] _ acc = acc
+        helper (x:xs) w acc = helper xs w (if x == w then (acc+1) else acc)
 
 -- Generates a list of chains from an input string and number of prefixes
 chainGenerator :: String -> Int -> [Chain]
