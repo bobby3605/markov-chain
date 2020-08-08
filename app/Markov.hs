@@ -52,11 +52,18 @@ wordRate input = zip uniques rateList -- Combines the rateList and uniques
 
 -- Returns a list of unique words
 uniqueWords :: Eq a => [a] -> [a]
-uniqueWords input = helper input []
+-- reverse [x]++acc is slightly faster than acc++[x]
+uniqueWords input = reverse $ helper input []
   where
     helper [] acc = acc -- Return the accumulator when finished
-    helper (x:xs) acc = if found x acc then helper xs acc else helper xs (acc++[x]) -- If x is in the accumulator, continue, if x is not in the accumulator (haven't added it yet), add it to accumulator, then continue
-    found word list = if (wordCounter list word) /= 0 then True else False -- Check if a word is in a list
+    helper (x:xs) acc = if found x acc then helper xs acc else helper xs ([x]++acc) -- If x is in the accumulator, continue, if x is not in the accumulator (haven't added it yet), add it to accumulator, then continue
+
+-- Slightly faster than wordCounter
+found :: Eq a => a -> [a] -> Bool
+found word list = helper word list
+  where helper :: Eq a => a -> [a] -> Bool
+        helper _ [] = False
+        helper w (y:ys) = if w == y then True else helper w ys
 
 wordCounter :: Eq a => [a] -> a -> Integer
 wordCounter input word = helper input word 0
