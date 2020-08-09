@@ -92,7 +92,7 @@ getSuffixes p input = reverse $ helper input []
                 currentPrefix = drop prefixLength xs
                 isNull = null currentPrefix
 
--- length xs > length ys
+-- length xs < length ys
 -- allows for fast comparison because you don't need (take (length xs) ys)
 fastCompare :: [String] -> [String] -> Bool
 fastCompare [] _ = True
