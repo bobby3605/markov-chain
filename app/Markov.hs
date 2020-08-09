@@ -1,6 +1,6 @@
 module Markov where
 
--- Current speed is about 0.00064 seconds per word on a stock ryzen 3600
+-- Current speed is about 0.00051 seconds per word on a stock ryzen 3600
 
 import Text.ParserCombinators.Parsec
 import System.Random
@@ -85,12 +85,10 @@ chainGenerator input prefixNum = clist
   where parsed = parseByWords input -- get parsed input
         prefixes :: [Prefix]
         prefixes = splitBy parsed prefixNum -- get total list of prefixes
-        suffixes :: [Suffix]
-        suffixes = concatMap (\x -> getSuffixes x parsed) prefixes -- get total list of suffixes
         pslist :: [(Prefix,Suffix)]
         pslist = zip bigprefixes suffixes -- Since suffixes might be > prefixes, need to match the set of prefixes with suffixes, do this by increasing number of prefixes by amount of its suffix
           where suffixlengths :: [Int]
-                suffixlengths = map (\b -> (length (getSuffixes b parsed))) prefixes -- Get list of lengths of each suffix
+                suffixlengths = map length suffixFunc -- Get list of lengths of each suffix
                 bigprefixes :: [Prefix]
                 bigprefixes = reverse $ generator repMap prefixes []  -- Get list of prefixes with extra added
                 repMap :: [(Prefix -> [Prefix])]
@@ -99,6 +97,10 @@ chainGenerator input prefixNum = clist
                 generator [] _ acc = acc
                 generator _ [] acc = acc
                 generator (f:fs) (x:xs) acc = generator fs xs ((f x)++acc) -- recursively apply the functions to generate the list of prefixes, works similar to map
+                suffixFunc :: [[Suffix]]
+                suffixFunc = map (\x -> getSuffixes x parsed) prefixes
+                suffixes :: [Suffix]
+                suffixes = concat suffixFunc -- get total list of suffixes
         rateList :: [((Prefix, Suffix),Rate)]
         rateList = wordRate pslist -- Generate list of prefixes, suffixes and their rates
         clist :: [Chain]
