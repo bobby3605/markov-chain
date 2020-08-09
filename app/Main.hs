@@ -18,5 +18,5 @@ main = do
     g <- getStdGen
     -- Number of prefixes is always == splitNum
     let splitNum = if (length args) >= 4 then (length (drop 2 args)-1) else 2
-    if (length args) >= 4 then print (chainHelper g file splitNum (read (args!!1) :: Int) (makeChain (init (drop 2 args)) (last args) 1)) else
+    if (length args) >= 4 then print (chainHelper g file splitNum (read (args!!1) :: Int) (makeChain (init (drop 2 args)) (last args))) else
       print $ drop 1 $ chainHelper g file splitNum (read (args!!1) :: Int) randomChain
