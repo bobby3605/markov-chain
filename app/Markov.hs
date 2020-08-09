@@ -1,11 +1,12 @@
 module Markov where
 
--- Current speed is about 0.000385 seconds per word on a stock ryzen 3600
+-- Current speed is about 0.00037 seconds per word on a stock ryzen 3600
 
 import Text.ParserCombinators.Parsec
 import System.Random
 import qualified Control.Monad.Trans.State.Lazy as S
 import Data.Hashable
+import Control.Parallel
 
 randomChain :: Chain
 randomChain = makeChain ["Random123","Random123"] "Random123" 1
@@ -46,7 +47,7 @@ parserHandler parsed = helper parsed
 
 -- Calculates a list of the rate of each word appearing in a list of strings
 wordRate :: [(Prefix,Suffix)] -> [((Prefix,Suffix),Rate)]
-wordRate input = zip uniques rateList -- Combines the rateList and uniques
+wordRate input = uniques `par` (zip uniques rateList) -- Combines the rateList and uniques
   where uniques = uniqueWords input -- List of unique words
         numOfWords = length input -- Total number of words
         wordCounts = map (wordCounter input) uniques -- Returns [Integer] where each integer is the amount of times each word occurs
