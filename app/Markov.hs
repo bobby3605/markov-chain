@@ -114,14 +114,15 @@ pickChain :: [Chain] -> [Chain] -> Integer -> Chain
 pickChain clist chains rand = if (length chains) == 0 then helper clist else helper chains
   where helper :: [Chain] -> Chain
         helper xs = xs `genericIndex` (rand `modInteger` (toInteger $ length xs))
+
 -- Gets the previous chain from the state,
 -- Adds 1 to the index for random numbers,
 -- Puts the generated chain in the state,
 -- Returns the generated chain
-chainState :: [Chain] -> [Integer] -> S.State (Chain,Int) Chain
+chainState :: [Chain] -> [Integer] -> S.State (Chain,Integer) Chain
 chainState clist rand = do
   (prev,i) <- S.get
-  let new = pickChain clist (getNextChains clist prev) (rand!!i)
+  let new = pickChain clist (getNextChains clist prev) (rand `genericIndex` i)
   S.put (new,(i+1))
   return new
 
