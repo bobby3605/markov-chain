@@ -1,10 +1,11 @@
 module Markov where
 
--- Current speed is about 0.00051 seconds per word on a stock ryzen 3600
+-- Current speed is about 0.00043 seconds per word on a stock ryzen 3600
 
 import Text.ParserCombinators.Parsec
 import System.Random
 import qualified Control.Monad.Trans.State.Lazy as S
+import Data.Hashable
 
 randomChain :: Chain
 randomChain = makeChain ["Random123","Random123"] "Random123" 1
@@ -64,20 +65,25 @@ found :: (Prefix,Suffix) -> [(Prefix,Suffix)] -> Bool
 found word list = helper word list
   where helper :: (Prefix,Suffix) -> [(Prefix,Suffix)] -> Bool
         helper _ [] = False
-        helper w (y:ys) = if fastCheck w y
+        helper w (y:ys) = if fastCheck y hashW1 hashW2
           then (if w == y then True else helper w ys) else helper w ys
+        hashW1 = hash $ head $ head $ fst word
+        hashW2 = hash $ head $ snd word
 
 wordCounter :: [(Prefix,Suffix)] -> (Prefix,Suffix) -> Integer
 wordCounter input word = helper input word 0
   where helper :: [(Prefix,Suffix)] -> (Prefix,Suffix) -> Integer -> Integer
         helper [] _ acc = acc
-        helper (x:xs) w acc = helper xs w (if fastCheck x w
+        helper (x:xs) w acc = helper xs w (if fastCheck x hashW1 hashW2
                                            then (if x == w then (acc+1) else acc) else acc)
+        hashW1 = hash $ head $ head $ fst word
+        hashW2 = hash $ head $ snd word
 
--- Compares a few values of two (Prefix,Suffix) for equality testing
+-- Compares hashes of initial values from a (Prefix,Suffix) and a (Prefix,Suffix).
+-- The second one remains constant, which allows this to be faster than just comparing the two without hashing
 -- Speeds up equality checks by returning False on any without the same initial values
-fastCheck :: (Prefix,Suffix) -> (Prefix,Suffix) -> Bool
-fastCheck x y = (head (head (fst x)) == head (head (fst y)) && ((head (snd x)) == (head (snd y))))
+fastCheck :: (Prefix,Suffix) -> Int -> Int -> Bool
+fastCheck x w1 w2 = (hash (head (head (fst x))) == w1 && (hash (head (snd x)) == w2))
 
 -- Generates a list of chains from an input string and number of prefixes
 chainGenerator :: String -> Int -> [Chain]
@@ -145,10 +151,10 @@ getRate (Chain _ _ r) = r
 
 -- Takes a list of rates and a random number, outputs a random weighted choice
 getRandom :: [Rate] -> Float -> [Bool]
-getRandom rateList randomNum = listGen
+getRandom rateList randomNum = reverse listGen
   where listGenHelper :: [Rate] -> [Bool] -> Float -> [Bool]
         listGenHelper [] acc _ = acc
-        listGenHelper (x:xs) acc acc2 = listGenHelper xs (acc ++ (if randomNum <= (x+acc2) && randomNum > acc2 then True:[] else False:[])) (acc2+x)
+        listGenHelper (x:xs) acc acc2 = listGenHelper xs ((if randomNum <= (x+acc2) && randomNum > acc2 then True:[] else False:[])++acc) (acc2+x)
         listGen = listGenHelper rateList [] 0.00
 
 getNextChains :: [Chain] -> Chain -> [Chain]
