@@ -1,12 +1,13 @@
 module Markov where
 
--- Current speed is about 0.000198 seconds per word on a stock ryzen 3600
+-- Current speed is about 0.0000217 seconds per word on a stock ryzen 3600
 
 import Text.ParserCombinators.Parsec
 import System.Random
 import qualified Control.Monad.Trans.State.Lazy as S
 import GHC.Num
 import Data.List
+import Control.Parallel.Strategies
 
 randomChain :: Chain
 randomChain = makeChain ["Random123","Random123"] "Random123"
@@ -62,7 +63,7 @@ chainGenerator input prefixNum = clist
                 generator _ [] acc = acc
                 generator (f:fs) (x:xs) acc = generator fs xs ((f x)++acc) -- recursively apply the functions to generate the list of prefixes, works similar to map
                 suffixFunc :: [[Suffix]]
-                suffixFunc = map (\x -> getSuffixes x parsed) prefixes
+                suffixFunc = parMap rdeepseq (\x -> getSuffixes x parsed) prefixes
                 suffixes :: [Suffix]
                 suffixes = concat suffixFunc -- get total list of suffixes
         clist :: [Chain]
@@ -77,15 +78,26 @@ chainGenerator input prefixNum = clist
 makeChain :: Prefix -> Suffix -> Chain
 makeChain p s = Chain {prefix = p, suffix = s}
 
--- Takes an arbitrary length sequence of strings and a larger string, gets each word after each occurance of the sequence
+-- Takes a prefix and a list of words, gets the word after each occurance of the prefix
 getSuffixes :: Prefix -> [String] -> [Suffix]
-getSuffixes p input = helper p input []
-  where helper :: Prefix -> [String] -> [Suffix] -> [Suffix]
-        helper _ [_] acc = acc
-        helper _ [] acc = acc
-        --                  if the prefix == current string position, then append the next word to the suffix list,                                                       if strings don't match, continue to next string
-        --                                                                                This if statement checks for out of bounds list indexing
-        helper px xs acc = if px == take (length px) xs then helper px (tail xs) (acc++(if (drop (length px) xs) /= [] then ((head (drop (length px) xs)):[]) else [])) else helper px (tail xs) acc
+getSuffixes p input = reverse $ helper input []
+  where prefixLength = length p
+        helper :: [String] -> [Suffix] -> [Suffix]
+        helper [_] acc = acc
+        helper [] acc = acc
+        --                  if the prefix == current prefix, then append the next prefix to the suffix list,                  if strings don't match, continue to next string
+        --                                                        This if statement checks for out of bounds list indexing
+        helper xs acc = if fastCompare p xs then helper tailInput (if isNull then [] else (head currentPrefix):[]++acc) else helper tailInput acc
+          where tailInput = tail xs
+                currentPrefix = drop prefixLength xs
+                isNull = null currentPrefix
+
+-- length xs > length ys
+-- allows for fast comparison because you don't need (take (length xs) ys)
+fastCompare :: [String] -> [String] -> Bool
+fastCompare [] _ = True
+fastCompare _ [] = False
+fastCompare (x:xs) (y:ys) = if x == y then fastCompare xs ys else False
 
 -- Splits a list of strings by number
 splitBy :: [a] -> Int -> [[a]]
