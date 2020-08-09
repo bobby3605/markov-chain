@@ -1,5 +1,7 @@
 module Markov where
 
+-- Current speed is about 0.00064 seconds per word on a stock ryzen 3600
+
 import Text.ParserCombinators.Parsec
 import System.Random
 import qualified Control.Monad.Trans.State.Lazy as S
@@ -42,8 +44,7 @@ parserHandler parsed = helper parsed
             Right s -> s
 
 -- Calculates a list of the rate of each word appearing in a list of strings
-wordRate :: Eq a => [a] -> [(a,Rate)]
--- input :: [(Prefix,Suffix)], only called once
+wordRate :: [(Prefix,Suffix)] -> [((Prefix,Suffix),Rate)]
 wordRate input = zip uniques rateList -- Combines the rateList and uniques
   where uniques = uniqueWords input -- List of unique words
         numOfWords = length input -- Total number of words
@@ -51,7 +52,7 @@ wordRate input = zip uniques rateList -- Combines the rateList and uniques
         rateList = map (\x -> x / (fromIntegral numOfWords :: Float)) (map (\b -> (fromIntegral b :: Float)) wordCounts) -- Returns a [Float] of word rates in the order they appear in uniques
 
 -- Returns a list of unique words
-uniqueWords :: Eq a => [a] -> [a]
+uniqueWords :: [(Prefix,Suffix)] -> [(Prefix,Suffix)]
 -- reverse [x]++acc is slightly faster than acc++[x]
 uniqueWords input = reverse $ helper input []
   where
@@ -59,17 +60,24 @@ uniqueWords input = reverse $ helper input []
     helper (x:xs) acc = if found x acc then helper xs acc else helper xs ([x]++acc) -- If x is in the accumulator, continue, if x is not in the accumulator (haven't added it yet), add it to accumulator, then continue
 
 -- Slightly faster than wordCounter
-found :: Eq a => a -> [a] -> Bool
+found :: (Prefix,Suffix) -> [(Prefix,Suffix)] -> Bool
 found word list = helper word list
-  where helper :: Eq a => a -> [a] -> Bool
+  where helper :: (Prefix,Suffix) -> [(Prefix,Suffix)] -> Bool
         helper _ [] = False
-        helper w (y:ys) = if w == y then True else helper w ys
+        helper w (y:ys) = if fastCheck w y
+          then (if w == y then True else helper w ys) else helper w ys
 
-wordCounter :: Eq a => [a] -> a -> Integer
+wordCounter :: [(Prefix,Suffix)] -> (Prefix,Suffix) -> Integer
 wordCounter input word = helper input word 0
-  where helper :: Eq a => [a] -> a -> Integer -> Integer
+  where helper :: [(Prefix,Suffix)] -> (Prefix,Suffix) -> Integer -> Integer
         helper [] _ acc = acc
-        helper (x:xs) w acc = helper xs w (if x == w then (acc+1) else acc)
+        helper (x:xs) w acc = helper xs w (if fastCheck x w
+                                           then (if x == w then (acc+1) else acc) else acc)
+
+-- Compares a few values of two (Prefix,Suffix) for equality testing
+-- Speeds up equality checks by returning False on any without the same initial values
+fastCheck :: (Prefix,Suffix) -> (Prefix,Suffix) -> Bool
+fastCheck x y = (head (head (fst x)) == head (head (fst y)) && ((head (snd x)) == (head (snd y))))
 
 -- Generates a list of chains from an input string and number of prefixes
 chainGenerator :: String -> Int -> [Chain]
@@ -115,7 +123,8 @@ getSuffixes p input = helper p input []
         helper _ [] acc = acc
         --                  if the prefix == current string position, then append the next word to the suffix list,                                                       if strings don't match, continue to next string
         --                                                                                This if statement checks for out of bounds list indexing
-        helper px xs acc = if px == (take (length px) xs) then helper px (tail xs) (acc++(if (drop (length px) xs) /= [] then ((head (drop (length px) xs)):[]) else [])) else helper px (tail xs) acc
+        -- The trick with head actually causes a slowdown here, length px is taking about half the time
+        helper px xs acc = if px == take (length px) xs then helper px (tail xs) (acc++(if (drop (length px) xs) /= [] then ((head (drop (length px) xs)):[]) else [])) else helper px (tail xs) acc
 
 -- Splits a list of strings by number
 splitBy :: [a] -> Int -> [[a]]

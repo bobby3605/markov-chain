@@ -9,9 +9,6 @@ usage = do
   print "Usage: "
   print "filepath, number of words to output, optional(prefixes, suffix)"
 
--- TODO Run different parts and time them to see what takes so long
--- TODO Rates need to be sorted in descending order
-
 main :: IO ()
 main = do
   -- args!!0 = file, args!!1 = output length, args!!(2 to n-1) = prefixes args!!n = suffixes where n = length args
