@@ -1,6 +1,6 @@
 module Markov where
 
--- Current speed is about 0.00043 seconds per word on a stock ryzen 3600
+-- Current speed is about 0.000385 seconds per word on a stock ryzen 3600
 
 import Text.ParserCombinators.Parsec
 import System.Random
@@ -62,20 +62,22 @@ uniqueWords input = reverse $ helper input []
 
 -- Slightly faster than wordCounter
 found :: (Prefix,Suffix) -> [(Prefix,Suffix)] -> Bool
-found word list = helper word list
-  where helper :: (Prefix,Suffix) -> [(Prefix,Suffix)] -> Bool
-        helper _ [] = False
-        helper w (y:ys) = if fastCheck y hashW1 hashW2
-          then (if w == y then True else helper w ys) else helper w ys
+found word list = helper list
+  where helper :: [(Prefix,Suffix)] -> Bool
+        helper [] = False
+        helper (x:xs) = if fastCheck x hashW1 hashW2
+          then (if hash x == hashW then True else helper xs) else helper xs
+
         hashW1 = hash $ head $ head $ fst word
         hashW2 = hash $ head $ snd word
+        hashW = hash word
 
 wordCounter :: [(Prefix,Suffix)] -> (Prefix,Suffix) -> Integer
-wordCounter input word = helper input word 0
-  where helper :: [(Prefix,Suffix)] -> (Prefix,Suffix) -> Integer -> Integer
-        helper [] _ acc = acc
-        helper (x:xs) w acc = helper xs w (if fastCheck x hashW1 hashW2
-                                           then (if x == w then (acc+1) else acc) else acc)
+wordCounter input word = helper input 0
+  where helper :: [(Prefix,Suffix)] -> Integer -> Integer
+        helper [] acc = acc
+        helper (x:xs) acc = helper xs (if fastCheck x hashW1 hashW2
+                                           then (if x == word then (acc+1) else acc) else acc)
         hashW1 = hash $ head $ head $ fst word
         hashW2 = hash $ head $ snd word
 
