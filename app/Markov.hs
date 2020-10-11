@@ -32,13 +32,13 @@ parseByWords input = parserHandler $ parse wordParser "" input
 wordParser :: Parser [String]
 wordParser = many $ do
     a <- noneOf "" -- This fixes an error about parsing empty strings
-    word <- (many (letter <|> char '\'' <|> char '/'))-- a word is many letters or special characters
+    word <- many (letter <|> char '\'' <|> char '/')-- a word is many letters or special characters
     _ <- many space -- after a word there is at least one space
     return $ a:word -- return the word
 
 -- Takes the value returned from a parser out of the Either ParseError Monad
 parserHandler :: Either ParseError [String] -> [String]
-parserHandler parsed = helper parsed
+parserHandler = helper
   where helper x =
           case x of
             Left e -> ["Error: " ++ (show e :: String)]
@@ -56,14 +56,14 @@ chainGenerator input prefixNum = clist
                 suffixlengths = map length suffixFunc -- Get list of lengths of each suffix
                 bigprefixes :: [Prefix]
                 bigprefixes = reverse $ generator repMap prefixes []  -- Get list of prefixes with extra added
-                repMap :: [(Prefix -> [Prefix])]
-                repMap = map (\c -> replicate c) suffixlengths -- Create a list of functions that take a prefix and generate a list of prefixes equal to the length of their suffixes
-                generator :: [(Prefix -> [Prefix])] -> [Prefix] -> [Prefix] -> [Prefix]
+                repMap :: [Prefix -> [Prefix]]
+                repMap = map replicate suffixlengths -- Create a list of functions that take a prefix and generate a list of prefixes equal to the length of their suffixes
+                generator :: [Prefix -> [Prefix]] -> [Prefix] -> [Prefix] -> [Prefix]
                 generator [] _ acc = acc
                 generator _ [] acc = acc
-                generator (f:fs) (x:xs) acc = generator fs xs ((f x)++acc) -- recursively apply the functions to generate the list of prefixes, works similar to map
+                generator (f:fs) (x:xs) acc = generator fs xs (f x++acc) -- recursively apply the functions to generate the list of prefixes, works similar to map
                 suffixFunc :: [[Suffix]]
-                suffixFunc = parMap rdeepseq (\x -> getSuffixes x parsed) prefixes
+                suffixFunc = parMap rdeepseq (`getSuffixes` parsed) prefixes
                 suffixes :: [Suffix]
                 suffixes = concat suffixFunc -- get total list of suffixes
         clist :: [Chain]
@@ -102,12 +102,12 @@ getSuffixes p input = reverse $ helper input []
 fastCompare :: [String] -> [String] -> Bool
 fastCompare [] _ = True
 fastCompare _ [] = False
-fastCompare (x:xs) (y:ys) = if x == y then fastCompare xs ys else False
+fastCompare (x:xs) (y:ys) = (x == y) && fastCompare xs ys
 
 -- Splits a list of strings by number
 splitBy :: [a] -> Int -> [[a]]
 splitBy [] _ = []   -- Splitting by 1s causes infinite recursion
-splitBy input num = (take num input):(splitBy (drop (if num /= 1 then (num-1) else num) input) num)
+splitBy input num = take num input:splitBy (drop (if num /= 1 then num-1 else num) input) num
 
 -- Get possible chains from a list of chains and a single chain
 getNextChains :: [Chain] -> Chain -> [Chain]
@@ -116,12 +116,12 @@ getNextChains list input = getSuffixList list input []
         getSuffixList [] _ acc = acc
         -- Possibly replace the equality check with hashes to make it faster?
         -- Don't need to regenerate ((last (prefix inputChain)):[]++(suffix inputChain):[]) every time
-        getSuffixList (chain:chains) inputChain acc = if (prefix chain) == ((last (prefix inputChain)):[]++(suffix inputChain):[]) then getSuffixList chains inputChain acc++[chain] else getSuffixList chains inputChain acc
+        getSuffixList (chain:chains) inputChain acc = if prefix chain == [last (prefix inputChain), suffix inputChain] then getSuffixList chains inputChain acc++[chain] else getSuffixList chains inputChain acc
 
 pickChain :: [Chain] -> [Chain] -> Integer -> Chain
-pickChain clist chains rand = if (length chains) == 0 then helper clist else helper chains
+pickChain clist chains rand = if null chains then helper clist else helper chains
   where helper :: [Chain] -> Chain
-        helper xs = xs `genericIndex` (rand `modInteger` (toInteger $ length xs))
+        helper xs = xs `genericIndex` (rand `modInteger` toInteger (length xs))
 
 -- Gets the previous chain from the state,
 -- Adds 1 to the index for random numbers,
@@ -131,7 +131,7 @@ chainState :: [Chain] -> [Integer] -> S.State (Chain,Integer) Chain
 chainState clist rand = do
   (prev,i) <- S.get
   let new = pickChain clist (getNextChains clist prev) (rand `genericIndex` i)
-  S.put (new,(i+1))
+  S.put (new,i+1)
   return new
 
 -- Creates a recursively defined list of the outputs of each state
@@ -140,16 +140,16 @@ stateHelper f arg = do
   let headF = S.runState f arg
   let prev = snd headF
   let nextS = stateHelper f prev
-  (fst prev):(nextS)
+  fst prev:nextS
 
 -- Put everything together
 markovChain :: StdGen -> String -> Int -> Chain -> [Chain]
 markovChain g input splitNum seed = let clist = chainGenerator input splitNum in
-  seed:(stateHelper (chainState clist (randoms g :: [Integer])) (seed,1))
+  seed:stateHelper (chainState clist (randoms g :: [Integer])) (seed,1)
 
 chainHelper :: StdGen -> String -> Int -> Int -> Chain -> String
 chainHelper g input splitNum len seed = let clist = markovChain g input splitNum seed in
-  helper++(concatMap (\a -> " "++suffix a) $ take len (if seed /= randomChain then clist else (drop 1 clist)))
+  helper++concatMap (\a -> " "++suffix a) (take len (if seed /= randomChain then clist else drop 1 clist))
   where helper :: String
         -- Appends prefix to output
-        helper = if seed /= randomChain then (tail $ concatMap (" "++) (prefix seed)) else ""
+        helper = if seed /= randomChain then tail $ concatMap (" "++) (prefix seed) else ""
