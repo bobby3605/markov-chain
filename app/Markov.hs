@@ -85,12 +85,17 @@ getSuffixes p input = reverse $ helper input []
         helper :: [String] -> [Suffix] -> [Suffix]
         helper [_] acc = acc
         helper [] acc = acc
-        --                  if the prefix == current prefix, then append the next prefix to the suffix list,                  if strings don't match, continue to next string
-        --                                                        This if statement checks for out of bounds list indexing
-        helper xs acc = if fastCompare p xs then helper tailInput (if isNull then [] else (head currentPrefix):[]++acc) else helper tailInput acc
+        --                  if the prefix == current prefix, then append the next prefix to the suffix list, if strings don't match, continue to next string
+        helper xs acc = if cmp then helperAdd else helperDontAdd
           where tailInput = tail xs
                 currentPrefix = drop prefixLength xs
                 isNull = null currentPrefix
+                helperDontAdd = partialHelper acc
+                partialHelper = helper tailInput
+                cmp = fastCompare p xs
+                fastHead [] = []
+                fastHead (x:xs) = x:acc
+                helperAdd = partialHelper (fastHead currentPrefix)
 
 -- length xs < length ys
 -- allows for fast comparison because you don't need (take (length xs) ys)
@@ -104,10 +109,13 @@ splitBy :: [a] -> Int -> [[a]]
 splitBy [] _ = []   -- Splitting by 1s causes infinite recursion
 splitBy input num = (take num input):(splitBy (drop (if num /= 1 then (num-1) else num) input) num)
 
+-- Get possible chains from a list of chains and a single chain
 getNextChains :: [Chain] -> Chain -> [Chain]
 getNextChains list input = getSuffixList list input []
   where getSuffixList :: [Chain] -> Chain -> [Chain] -> [Chain]
         getSuffixList [] _ acc = acc
+        -- Possibly replace the equality check with hashes to make it faster?
+        -- Don't need to regenerate ((last (prefix inputChain)):[]++(suffix inputChain):[]) every time
         getSuffixList (chain:chains) inputChain acc = if (prefix chain) == ((last (prefix inputChain)):[]++(suffix inputChain):[]) then getSuffixList chains inputChain acc++[chain] else getSuffixList chains inputChain acc
 
 pickChain :: [Chain] -> [Chain] -> Integer -> Chain

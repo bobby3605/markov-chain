@@ -1,3 +1,5 @@
 .stack-work/
 *~
 markov-exe.prof
+app/Main.ll
+app/Markov.ll
